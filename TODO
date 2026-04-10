@@ -1,0 +1,32 @@
+#!/usr/bin/perl
+###
+############## TODO  list ##############
+###
+#High	- Support for multi url
+#High	- Add and remove tags from files
+#High	- Create the autotag features in rodofs
+#Med	- Rule evaluator
+#Med	- Insert rules in redis, and dictionaries in rodofs
+#Med	- Tags manager
+#Low	- Integrate wmii tags in ony taxonomy
+###
+########### Future  features ###########
+###
+#Future	- Spinoff project (generalize RodoObject to handle references and non-int oid, create a general datastore syncer.)
+###
+########### Completed  tasks ###########
+###
+#DONE	- Integrate plumb with rodofs
+#DONE	- Check tax and tags nename
+#DONE	- Handle nil computed members
+#DONE	- Create a single member evaluator
+#DONE	- Destroy a resource when not tagged
+#DONE	- Erase a resource from files
+#DONE	- Include md5 in rodo_autotag and use it to match resources
+#DONE	- Resource creation and delete
+#DONE	- Create the rules directories
+###
+########## And now the script ##########
+###
+
+open(MYSELF, "TODO"); while (<MYSELF>) { push(@lines,$_) if ($_!~/^###/); } close(MYSELF);open(MYSELF, ">TODO"); print MYSELF '#!/usr/bin/perl'."\n###\n############## TODO  list ##############\n###\n";foreach $i(@lines) {print MYSELF $i if($i =~ /^#High/);}foreach $i(@lines) {print MYSELF $i if($i =~ /^#Med/);}foreach $i(@lines) {print MYSELF $i if($i =~ /^#Low/);}print MYSELF "###\n########### Future  features ###########\n###\n";foreach $i(@lines) {print MYSELF $i if($i =~ /^#Future/);}print MYSELF "###\n########### Completed  tasks ###########\n###\n";foreach $i(@lines) {print MYSELF $i if($i =~ /^#DONE/);}print MYSELF "###\n########## And now the script ##########\n###\n";foreach $i(@lines) {print MYSELF $i if($i !~ /^#/);}

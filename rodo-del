@@ -1,0 +1,87 @@
+#!/usr/bin/perl
+
+use Cwd;
+use Getopt::Std;
+use File::Find;
+use File::Spec;
+
+
+sub usage {
+	print "RodoFS Delete - A RodoFS metadata eraser\nCopyright 2014 - Mirko Mariotti - http://www.mirkomariotti.it\n\n"; 
+	print "usage: rodo-del [options] file_or_regex\n\n";
+	print "-s			- Recurse.\n";
+	print "-w <path>		- Location of the rodofs syntetic file system (defaults /rodofs).\n\n";
+	
+}
+
+@selected=();
+
+%options=();
+getopts("sw:",\%options);
+
+if ($ARGV[0] && !$ARGV[1])
+{
+	foreach (@ARGV)
+	{
+		if (-f $_) {
+			$pattern=File::Spec->rel2abs($_);
+		} else {
+			$pattern="^".$_."\$";
+		}
+	}
+} else {
+	usage();
+	print "Argument error: No file or regex given\n";
+	exit(0);
+}
+
+sub wanted {
+	if (-d) {
+		# Prune all the directory if -r is not set
+		if ((!/^\.$/)&&(!defined $options{s})) {
+			 $File::Find::prune = 1;
+		}
+	} else {
+		# Insert the file if match
+		if (/$pattern/) {
+			push(@selected,$File::Find::name);
+		}
+	}
+}
+
+$rododict='';
+if (defined $options{w}) {
+	$rododict=$options{w}
+} else {
+	$rododict='/rodofs/';
+}
+
+@directories=(getcwd());
+if (-f $pattern) {
+	push(@selected,$pattern);
+} else {
+	find({'wanted'=>\&wanted}, @directories);
+}
+
+foreach $fn (@selected) {
+	$stfn=$fn;
+	$stfn=~s/.+\/(.+)/\1/g;
+	print "File: ".$fn." ";
+	$md5=`md5sum "$fn" | cut -d" " -f1`;
+	system('echo "md5: '.$md5.'" > '.$rododict.'/ctl');
+	opendir (DIR, $rododict.'/res');
+	$chk=0;
+	while (my $file = readdir(DIR)) {
+		if ($file eq $stfn) {
+			system('echo "kill" > "'.$rododict.'res/'.$stfn.'"');
+			print " - Metadata erased.";
+			$chk=1;
+			break;
+		}
+	}
+	closedir(DIR);
+	if ($chk==0) {
+		print " - Metadata not found.";
+	}
+	print "\n";
+}

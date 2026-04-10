@@ -1,0 +1,160 @@
+#!/usr/bin/perl
+
+use Cwd;
+use Getopt::Std;
+use File::Find;
+use File::Spec;
+
+sub usage {
+	print "RodoFS Tagger - A RodoFS metadata creator\nCopyright 2014 - Mirko Mariotti - http://www.mirkomariotti.it\n\n"; 
+	print "usage: rodo-tag [options] file_or_regex\n\n";
+	print "-s			- Recurse.\n";
+	print "-h			- Set hostname in url.\n";
+	print "-T <tag rule>,		- Comma separated tag atomic rules.\n";
+	print "-w <path>		- Location of the rodofs syntetic file system (defaults /rodofs).\n\n";
+	
+}
+
+$pattern='';
+@selected=();
+
+%options=();
+getopts("shw:T:",\%options);
+
+if ($ARGV[0] && !$ARGV[1])
+{
+	foreach (@ARGV)
+	{
+		if (-f $_) {
+			$pattern=File::Spec->rel2abs($_);
+		} else {
+			$pattern="^".$_."\$";
+		}
+	}
+} else {
+	usage();
+	print "Argument error: No file or regex given\n";
+	exit(0);
+}
+
+sub wanted {
+	if (-d) {
+		# Prune all the directory if -r is not set
+		if ((!/^\.$/)&&(!defined $options{s})) {
+			 $File::Find::prune = 1;
+		}
+	} else {
+		# Insert the file if match
+		if (/$pattern/) {
+			push(@selected,$File::Find::name);
+		}
+	}
+}
+
+$rododict='';
+if (defined $options{w}) {
+	$rododict=$options{w}
+} else {
+	$rododict='/rodofs/';
+}
+
+if (!defined($options{T})) {
+	usage();
+	print "No tag rule defined\n";
+	exit();
+}
+
+if (!defined($options{h})) {
+	$hostname=`hostname -s`;
+	$hostname=~s/\n//g;
+} else {
+	$hostname='';
+}
+
+@directories=(getcwd());
+if (-f $pattern) {
+	push(@selected,$pattern);
+} else {
+	find({'wanted'=>\&wanted}, @directories);
+}
+
+foreach $fn (@selected) {
+	$type=`file --mime-type -b -- "$fn"`;
+	$type=~s/\n//g;
+	$url='file://'.$hostname.$fn;
+	$stfn=$fn;
+	$stfn=~s/.+\/(.+)/\1/g;
+	#print "url: ".$url."\n";
+	#print "mime: ".$type."\n";
+	$chkc=0;
+	$firstn='';
+	print "File: ".$fn." ";
+	$md5=`md5sum "$fn" | cut -d" " -f1`;
+	foreach $tline (split(',',$options{T})) {
+		($taxname,$tagname)=split('=',$tline);
+		if (! -d $rododict.'tax/'.$taxname) {
+			system('mkdir "'.$rododict.'tax/'.$taxname.'"');
+		}
+
+		if (! -d $rododict.'tax/'.$taxname.'/'.$tagname) {
+			system('mkdir "'.$rododict.'tax/'.$taxname.'/'.$tagname.'"');
+		}
+
+		if ($chkc==0) {
+			system('echo "md5: '.$md5.'" > '.$rododict.'/ctl');
+			opendir (DIR, $rododict.'/res');
+			while (my $file = readdir(DIR)) {
+				if (($file ne '.')&&($file ne '..')) {
+					$firstn=$rododict.'res/'.$file;
+					$chkc=1;
+					print " - Found md5";
+					$urlchk=0;
+					open (NF, "$firstn");
+					while (<NF>) {
+						if ($_ =~ /^url: .+$/) {
+							$urlstring=$_;
+							$urlstring=~s/\n//g;
+							$urlstring=~s/^url: (.+)$/\1/g;
+							@currenturls = split('<SP>', $urlstring);
+							foreach $i(@currenturls) {
+								if ($i eq $url) {
+									$urlchk=1;
+									break;
+								}
+							}
+							if ($urlchk eq 0) {
+								$url=$url.'<SP>'.$urlstring;
+							}
+						}
+					}
+					close (NF);
+					if ($urlchk eq 0) {
+						open (NF, ">$firstn");
+						print NF 'url: '.$url."\n";
+						close (NF);
+					}
+					break;
+				}
+			}
+			closedir(DIR);
+		}
+
+		if ($chkc==0) {
+			$firstn=$rododict.'tax/'.$taxname.'/'.$tagname.'/'.$stfn;
+			open (NF, ">$firstn");
+			print NF 'url: '.$url."\n";
+			print NF 'mime: '.$type."\n";
+			print NF 'md5: '.$md5."\n";
+			close (NF);
+		} else {
+			$secondn=$rododict.'tax/'.$taxname.'/'.$tagname.'/'.$stfn;
+			if (! -f $secondn) {
+				system('cp "'.$firstn.'" "'.$secondn.'"');
+			}
+		}
+		$chkc=$chkc+1;
+		print " - Tagged with ".$taxname.'='.$tagname;
+	}
+	if ($chkc==0) { print " - Not tagged"; }
+	print "\n";
+}

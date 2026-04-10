@@ -1,0 +1,422 @@
+#!/usr/bin/perl
+
+use Cwd;
+use Getopt::Std;
+use File::Find;
+
+%helpers_view=();
+$helpers_view{'application/x-perl'}='vim -R -- "<file>"';
+$helpers_view{'text/script'}='vim -R -- "<file>"';
+$helpers_view{'text/plain'}='vim -R -- "<file>"';
+$helpers_view{'application/pdf'}='evince -s -- "<file>" > /dev/null 2>&1';
+$helpers_view{'image/png'}='gqview -t -- "<file>" > /dev/null 2>&1';
+$helpers_view{'image/jpeg'}='gqview -t -- "<file>" > /dev/null 2>&1';
+$helpers_view{'application/vnd.oasis.opendocument.text'}='libreoffice --nologo --view -- "<file>" > /dev/null 2>&1';
+$helpers_view{'video/x-flv'}='mplayer -fs -- "<file>" > /dev/null 2>&1';
+
+%extensions_view=();
+$extensions_view{'txt'}='vim -R -- "<file>"';
+$extensions_view{'chm'}='xchm -- "<file>" > /dev/null 2>&1';
+$extensions_view{'ps'}='evince -s -- "<file>" > /dev/null 2>&1';
+$extensions_view{'pdf'}='evince -s -- "<file>" > /dev/null 2>&1';
+$extensions_view{'cbr'}='evince -s -- "<file>" > /dev/null 2>&1';
+$extensions_view{'cbz'}='evince -s -- "<file>" > /dev/null 2>&1';
+$extensions_view{'djvu'}='evince -s -- "<file>" > /dev/null 2>&1';
+$extensions_view{'png'}='gqview -t -- "<file>" > /dev/null 2>&1';
+$extensions_view{'bmp'}='gqview -t -- "<file>" > /dev/null 2>&1';
+$extensions_view{'gif'}='gqview -t -- "<file>" > /dev/null 2>&1';
+$extensions_view{'xcf'}='gimp -- "<file>" > /dev/null 2>&1';
+$extensions_view{'jpg'}='gqview -t -- "<file>" > /dev/null 2>&1';
+$extensions_view{'svg'}='inkscape -- "<file>" > /dev/null 2>&1';
+$extensions_view{'avi'}='mplayer -fs -- "<file>" > /dev/null 2>&1';
+$extensions_view{'flv'}='mplayer -fs -- "<file>" > /dev/null 2>&1';
+$extensions_view{'mp4'}='mplayer -fs -- "<file>" > /dev/null 2>&1';
+$extensions_view{'mpg'}='mplayer -fs -- "<file>" > /dev/null 2>&1';
+$extensions_view{'ppt'}='libreoffice --nologo --view "<file>" > /dev/null 2>&1';
+$extensions_view{'doc'}='libreoffice --nologo --view "<file>" > /dev/null 2>&1';
+$extensions_view{'xls'}='libreoffice --nologo --view "<file>" > /dev/null 2>&1';
+$extensions_view{'tgz'}='tar ztvf -- "<file>"';
+
+%url_view=();
+$url_view{'http'}='vimprobable2 "<url>"';
+
+%helpers_edit=();
+$helpers_edit{'text/script'}='vim -- "<file>"';
+$helpers_edit{'application/x-perl'}='vim -- "<file>"';
+$helpers_edit{'image/png'}='gimp -- "<file>" > /dev/null 2>&1';
+$helpers_edit{'image/jpeg'}='gimp -- "<file>" > /dev/null 2>&1';
+
+%extensions_edit=();
+$extensions_edit{'txt'}='vim -- "<file>"';
+$extensions_edit{'png'}='gimp -- "<file>" > /dev/null 2>&1';
+$extensions_edit{'bmp'}='gimp -- "<file>" > /dev/null 2>&1';
+$extensions_edit{'xcf'}='gimp -- "<file>" > /dev/null 2>&1';
+$extensions_edit{'gif'}='gimp -- "<file>" > /dev/null 2>&1';
+$extensions_edit{'jpg'}='gimp -- "<file>" > /dev/null 2>&1';
+$extensions_edit{'svg'}='inkscape -- "<file>" > /dev/null 2>&1';
+$extensions_edit{'doc'}='libreoffice --nologo "<file>" > /dev/null 2>&1';
+$extensions_edit{'xls'}='libreoffice --nologo "<file>" > /dev/null 2>&1';
+
+%url_edit=();
+$url_edit{'dummy'}='dummyvimprobable2 "<url>"';
+
+%quick=();
+@{$quick{'video'}}=('avi','mpg','video/x-flv','flv');
+@{$quick{'image'}}=('jpg','png','image/png','image/jpeg','gif','xcf','bmp');
+@{$quick{'audio'}}=('mp3');
+
+
+
+sub usage {
+	print "Plumber - A file viewer/edit wrapper eventually using RodoFS metadatas\nCopyright 2014 - Mirko Mariotti - http://www.mirkomariotti.it\n\n";
+	print "Usage: plumb [options] file_or_regex\n\n";
+	print "mode:\n";
+	print "-p			- Probe for file(s) type.\n";
+	print "-f			- Choose file(s) to plumb.\n";
+	print "-t			- Choose file(s) to plumb in tag syntetic fs.\n\n";
+
+	print "operation (f and t mode):\n";
+	print "-e			- Plumb with an editor (the default is a viewer).\n";
+	print "-L			- Show the file name alone (no editor or viewer).\n\n";
+
+	print "options (p,f and t modes):\n";
+	print "-s			- Recurse.\n";
+	print "-q <filter>		- Use a quick filter.\n";
+	print "-r			- Randomize (allow repetitions).\n";
+	print "-R			- Randomize (without repetitions).\n";
+	print "-c <counter>		- Count plumbed files (used only with -r or -R).\n\n";
+
+	print "options (f and t mode):\n";
+	print "-l			- Show the file name.\n";
+	print "-d			- Ask for file deletion after the plumbing.\n";
+	print "-m			- Ask for file rename after the plumbing.\n\n";
+
+	print "options (t mode):\n";
+	print "-T <tag rule>		- Use a tag rule on the syntetic fs.\n";
+	print "-w <path>		- Location of the rodofs syntetic file system (defaults /mnt/rodofs).\n\n";
+	
+}
+
+$pattern='';
+@selected=();
+
+%options=();
+getopts("c:Rrq:smdelLpftT:w:",\%options);
+
+if ($ARGV[0] && !$ARGV[1])
+{
+	foreach (@ARGV)
+	{
+		if (-f $_) {
+			$pattern=$_;
+		} else {
+			$pattern="^".$_."\$";
+		}
+	}
+} else {
+	if (defined $options{L}) {
+		$pattern="^.+\$";
+	} else {
+		usage();
+		print "Argument error: No file or regex given\n";
+		exit(0);
+	}
+}
+
+sub wanted {
+	if (-d) {
+		# Prune all the directory if -r is not set
+		if ((!/^\.$/)&&(!defined $options{s})) {
+			 $File::Find::prune = 1;
+		}
+	} else {
+		# Insert the file if match
+		if (/$pattern/) {
+			if (defined $options{q}) {
+#				$type=$ft->checktype_filename($_);
+				$type=`file --mime-type -b -- "$_"`;
+				$type=~s/\n//g;
+				$ext=$_;
+				$ext=~s/.*\.(\w+)/$1/g;
+				$ext= lc $ext;
+
+				if ($ext =~ /\.tar\.gz/) { $ext='tgz'; }
+
+				foreach $filter (keys %quick) {
+					if ($options{q} eq $filter) {
+						foreach $posst (@{$quick{$filter}}) {
+							if ( $posst eq $type ) {
+								push(@selected,$File::Find::name);
+							}
+							elsif ( $posst eq $ext) {
+								push(@selected,$File::Find::name);
+							}
+						}
+					}
+				}
+			} else {
+				push(@selected,$File::Find::name);
+			}
+		}
+	}
+}
+
+$moptc=0;
+
+if (defined $options{p}) {
+	$moptc=$moptc+1;
+}
+
+if (defined $options{f}) {
+	$moptc=$moptc+1;
+}
+
+if (defined $options{t}) {
+	$moptc=$moptc+1;
+}
+
+if ($moptc==0) {
+	usage();
+	print "Argument error: One among f, p and t option has t be set.\n";
+	exit(0);
+}
+
+if ($moptc>1) {
+	usage();
+	print "Argument error: Options f, p and t are mutually exclusive.\n";
+	exit(0);
+}
+
+$rule='unchanged';
+if (defined $options{T}) {
+	$rule=$options{T};
+}
+
+if ((defined $options{e}) && (defined $options{L})) {
+	usage();
+	print "Argument error: L and e options are exclusive\n";
+	exit(0);
+}
+
+$rododict='';
+$rodobase='';
+if (defined $options{t}) {
+	if (defined $options{w}) {
+		@directories=($options{w});
+		$rododict=$options{w}.'/res/';
+		$rodobase=$options{w};
+	} else {
+		@directories=('/rodofs/res/');
+		$rodobase='/rodofs/';
+		$rododict='/rodofs/res/';
+		if ($rule ne 'unchanged') {
+			system('echo "rule: '.$rule.'" > '.$rodobase.'ctl');
+		}
+	}
+} else {
+	@directories=(getcwd());
+}
+
+if (-f $pattern) {
+	push(@selected,$pattern);
+} else {
+	find({'wanted'=>\&wanted}, @directories);
+}
+
+##### Randomness
+if ((defined $options{r})||(defined $options{R})) {
+
+	$counter=1;
+	srand (time ^ $$ ^ unpack "%L*", `ps axww | gzip`);
+	@filtered=();
+
+	if (defined $options{c}) {
+		$counter=$options{c};
+	}
+
+	for ($i=0;$i<$counter;$i++) {
+		$place = rand($#selected+1);
+		push(@filtered,$selected[$place]);
+
+		if (defined $options{R}) {
+			delete $selected[$place];
+		}
+
+		if ($#selected+1 == 0) {
+			last;
+		}
+
+	}
+
+	@selected=@filtered;
+}
+
+##### Probe mode
+if (defined $options{p}) {
+	foreach $fn (@selected) {
+#		$type=$ft->checktype_filename($fn);
+		$type=`file --mime-type -b -- "$fn"`;
+		$type=~s/\n//g;
+		print $fn." - ".$type."\n";
+	}
+}
+##### File and tag mode 
+elsif ((defined $options{f})||(defined $options{t})) {
+	foreach $fn (@selected) {
+		$url='unknown';
+		my %rodometa = ();
+		if (defined $options{t}) {
+			@rodo=`cat "$fn"`;
+			foreach $line (@rodo) {
+				$line=~s/\n//g;
+				if ($line =~ /^mime: /) {
+					$line=~s/^mime: (.+)/\1/g;
+					$rodometa{'mime'}=$line;
+				}
+				if ($line =~ /^url: /) {
+					$line=~s/^url: (.+)/\1/g;
+					$rodometa{'url'}=$line;
+				}
+			}
+		}
+
+		if (defined $options{f}) {
+			$type=`file --mime-type -b -- "$fn"`;
+		} elsif (defined $options{t}) {
+			if (exists $rodometa{'mime'}) {
+				$type=$rodometa{'mime'};
+			} else {
+				$type='unknown';
+			}
+			if (exists $rodometa{'url'}) {
+				$url=$rodometa{'url'};
+			}
+		}
+		$type=~s/\n//g;
+		$url=~s/\n//g;
+
+		if ((defined $options{l}) || (defined $options{L})) {
+			if (defined $options{t}) {
+				$pafn=$fn;
+				$pafn=~s/$rododict(.+)/\1/g;
+				print $pafn."\n";
+			} else {
+				print $fn."\n";
+			}
+		}
+
+		if (defined $options{L}) {
+			next;
+		}
+
+		# This is the rodofs case
+		if ($url ne 'unknown') {
+			@currenturls = split('<SP>', $url);
+			foreach $curl (@currenturls) {
+
+				$proto=$curl;
+				$proto=~s/(\w+):\/\/.+/\1/g;
+	
+				if ($proto eq 'file') {
+					$hostname=`hostname -s`;
+					$hostname=~s/\n//g;
+					$machine=$curl;
+					$machine=~s/\w+:\/\/([\w\.]*)\/.+/\1/g;
+					$newfn=$curl;
+					$newfn=~s/\w+:\/\/[\w\.]*(\/.+)/\1/g;
+					if ( -f $newfn ) {
+						if (($machine ne '')&&($machine ne $hostname)) {
+							next;
+						} else {
+							$url='unknown';
+							$fn=$newfn;
+							last;
+						}
+					} else {
+						next;
+					}
+				} else {
+					if (defined $options{e}) {
+						if (exists $url_edit{$proto} ) {
+							$command=$url_edit{$proto};
+							$command=~s/<url>/$url/g;
+							system ($command);
+						}
+					} else {
+						if (exists $url_view{$proto} ) {
+							$command=$url_view{$proto};
+							$command=~s/<url>/$url/g;
+							system ($command);
+						}
+					}
+				}
+			}
+		}
+
+		if ($url eq 'unknown') {
+			if (defined $options{e}) {
+				if (exists $helpers_edit{$type} ) {
+					if ($type ne '') {
+						$command=$helpers_edit{$type};
+						$command=~s/<file>/$fn/g;
+						system ($command);
+						if (defined $options{d}) {
+							system("rm -i -- \"".$fn."\"");
+						} elsif (defined $options{m}) {
+							system("qmv -- \"".$fn."\"");
+						}
+					}
+				} else {
+					$ext=$fn;
+					$ext=~s/.*\.(\w+)/$1/g;
+					$ext= lc $ext;
+					if ($ext ne $fn) {
+						if (exists $extensions_edit{$ext}) {
+							$command=$extensions_edit{$ext};
+							$command=~s/<file>/$fn/g;
+							system ($command);
+							if (defined $options{d}) {
+								system("rm -i -- \"".$fn."\"");
+							} elsif (defined $options{m}) {
+								system("qmv -- \"".$fn."\"");
+							}
+						}
+					}
+				}
+			} else {
+				if (exists $helpers_view{$type} ) {
+					if ($type ne '') {
+						$command=$helpers_view{$type};
+						$command=~s/<file>/$fn/g;
+						system ($command);
+						if (defined $options{d}) {
+							system("rm -i -- \"".$fn."\"");
+						} elsif (defined $options{m}) {
+							system("qmv -- \"".$fn."\"");
+						}
+					}
+				} else {
+					$ext=$fn;
+					$ext=~s/.*\.(\w+)/$1/g;
+					$ext= lc $ext;
+					if ($ext ne $fn) {
+						if (exists $extensions_view{$ext}) {
+							$command=$extensions_view{$ext};
+							$command=~s/<file>/$fn/g;
+							system ($command);
+							if (defined $options{d}) {
+								system("rm -i -- \"".$fn."\"");
+							} elsif (defined $options{m}) {
+								system("qmv -- \"".$fn."\"");
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+else {
+	usage();
+}

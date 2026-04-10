@@ -1,0 +1,227 @@
+#!/usr/bin/perl
+
+use Cwd;
+use Getopt::Std;
+use File::Find;
+use File::Spec;
+
+sub get_autotag {
+
+	my %autotag=();
+	opendir (DIR, $rododict.'/auto');
+	while (my $file = readdir(DIR)) {
+		if (($file ne '.')&&($file ne '..')) {
+			open NF, $rododict.'/auto/'.$file;
+			$urlmatch='';
+			$tagset='';
+			while (<NF>) {
+				s/\n//g;
+				if (/^urlmatch: /) {
+					$urlmatch=$_;
+					$urlmatch=~s/^urlmatch: (.+)/\1/g;
+				}
+				if (/^tagset: /) {
+					$tagset=$_;
+					$tagset=~s/^tagset: (.+)/\1/g;
+				}
+			}
+			close (NF);
+			if (($tagset ne '')&&($urlmatch ne '')) {
+				@tags=split(',',$tagset);
+				foreach $tag (@tags) {
+					if ($tag =~/[\w ]+=[\w ]+/) {
+
+						if (exists $autotag{$urlmatch}) {
+							push ( @{ $autotag{$urlmatch} }, $tag)
+						} else {
+							$autotag{$urlmatch}=[$tag];
+						}
+					}
+				}
+			}
+		}
+	}
+	closedir(DIR);
+#	
+#	$autotag{'fisica'}=['argument=physics','argument=science'];
+#	$autotag{'physics'}=['argument=physics','argument=science'];
+#	$autotag{'cosmology'}=['argument=physics','argument=science','argument=cosmology'];
+#	$autotag{'quantum mechanics'}=['argument=physics','argument=science','argument=quantum mechanics'];
+#	$autotag{'classical mechanics'}=['argument=physics','argument=science','argument=classical mechanics'];
+#	$autotag{'statistical mechanics'}=['argument=physics','argument=science','argument=statistical mechanics'];
+#	
+#	$autotag{'mathematics'}=['argument=mathematics','argument=science'];
+#	
+#	$autotag{'linux'}=['argument=computer science','argument=science','argument=linux'];
+#	$autotag{'informatica'}=['argument=computer science','argument=science'];
+#	$autotag{'computer science'}=['argument=computer science','argument=science'];
+#	
+#	$autotag{'java'}=['argument=java','argument=computer science','argument=science','argument=programming'];
+#	$autotag{'ruby'}=['argument=ruby','argument=computer science','argument=science','argument=programming'];
+#	$autotag{'python'}=['argument=python','argument=computer science','argument=science','argument=programming'];
+#	
+#	$autotag{'economics'}=['argument=economics','argument=science'];
+#	
+#	$autotag{'artificial intelligence'}=['argument=artificial intelligence','argument=science'];
+#	
+#	$autotag{'cucina'}=['argument=cousine'];
+#	$autotag{'cousine'}=['argument=cousine'];
+
+	return %autotag;	
+}
+
+
+sub usage {
+	print "RodoFS Autotagger - A RodoFS metadata creator from filename\nCopyright 2014 - Mirko Mariotti - http://www.mirkomariotti.it\n\n"; 
+	print "usage: rodo-autotag [options] file_or_regex\n\n";
+	print "-s			- Recurse.\n";
+	print "-h			- Set hostname in url.\n";
+	print "-w <path>		- Location of the rodofs syntetic file system (defaults /rodofs).\n\n";
+	
+}
+
+$pattern='';
+@selected=();
+
+%options=();
+getopts("shw:",\%options);
+
+if ($ARGV[0] && !$ARGV[1])
+{
+	foreach (@ARGV)
+	{
+		if (-f $_) {
+			$pattern=File::Spec->rel2abs($_);
+		} else {
+			$pattern="^".$_."\$";
+		}
+	}
+} else {
+	usage();
+	print "Argument error: No file or regex given\n";
+	exit(0);
+}
+
+sub wanted {
+	if (-d) {
+		# Prune all the directory if -r is not set
+		if ((!/^\.$/)&&(!defined $options{s})) {
+			 $File::Find::prune = 1;
+		}
+	} else {
+		# Insert the file if match
+		if (/$pattern/) {
+			push(@selected,$File::Find::name);
+		}
+	}
+}
+
+$rododict='';
+if (defined $options{w}) {
+	$rododict=$options{w}
+} else {
+	$rododict='/rodofs/';
+}
+
+if (defined $options{h}) {
+	$hostname=`hostname -s`;
+	$hostname=~s/\n//g;
+} else {
+	$hostname='';
+}
+
+%autotag=get_autotag();
+
+@directories=(getcwd());
+if (-f $pattern) {
+	push(@selected,$pattern);
+} else {
+	find({'wanted'=>\&wanted}, @directories);
+}
+
+foreach $fn (@selected) {
+	$type=`file --mime-type -b -- "$fn"`;
+	$type=~s/\n//g;
+	$url='file://'.$hostname.$fn;
+	$stfn=$fn;
+	$stfn=~s/.+\/(.+)/\1/g;
+	#print "url: ".$url."\n";
+	#print "mime: ".$type."\n";
+	$chkc=0;
+	$firstn='';
+	print "File: ".$fn." ";
+	foreach my $patt ( keys %autotag ) {
+		if ($fn =~/$patt/i) {
+			$md5=`md5sum "$fn" | cut -d" " -f1`;
+			foreach $tline (@{ $autotag{$patt} }) {
+				($taxname,$tagname)=split('=',$tline);
+				if (! -d $rododict.'tax/'.$taxname) {
+					system('mkdir "'.$rododict.'tax/'.$taxname.'"');
+				}
+
+				if (! -d $rododict.'tax/'.$taxname.'/'.$tagname) {
+					system('mkdir "'.$rododict.'tax/'.$taxname.'/'.$tagname.'"');
+				}
+
+				if ($chkc==0) {
+					system('echo "md5: '.$md5.'" > '.$rododict.'/ctl');
+					opendir (DIR, $rododict.'/res');
+					while (my $file = readdir(DIR)) {
+						if (($file ne '.')&&($file ne '..')) {
+							$firstn=$rododict.'res/'.$file;
+							$chkc=1;
+							print " - Found md5";
+
+							$urlchk=0;
+
+							open (NF, "$firstn");
+							while (<NF>) {
+								if ($_ =~ /^url: .+$/) {
+									$urlstring=$_; 
+									$urlstring=~s/\n//g;
+									$urlstring=~s/^url: (.+)$/\1/g;
+									@currenturls = split('<SP>', $urlstring);
+									foreach $i(@currenturls) {
+										if ($i eq $url) {
+											$urlchk=1; 
+											break;
+										}
+									}
+									if ($urlchk eq 0) {
+										$url=$url.'<SP>'.$urlstring;  
+									}
+								}
+							}
+							close (NF);
+							if ($urlchk eq 0) {
+								open (NF, ">$firstn");
+								print NF 'url: '.$url."\n";
+								close (NF);
+							}
+							break;
+						}
+					}
+					closedir(DIR);
+				}
+
+				if ($chkc==0) {
+					$firstn=$rododict.'tax/'.$taxname.'/'.$tagname.'/'.$stfn;
+					open (NF, ">$firstn");
+					print NF 'url: '.$url."\n";
+					print NF 'mime: '.$type."\n";
+					print NF 'md5: '.$md5."\n";
+					close (NF);
+				} else {
+					$secondn=$rododict.'tax/'.$taxname.'/'.$tagname.'/'.$stfn;
+					if (! -f $secondn) {
+						system('cp "'.$firstn.'" "'.$secondn.'"');
+					}
+				}
+				$chkc=$chkc+1;
+				print " - Tagged with ".$taxname.'='.$tagname;
+			}
+		}
+	}
+	if ($chkc==0) { print " - Not tagged"; }
+	print "\n";
+}
