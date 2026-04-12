@@ -6,7 +6,7 @@ use File::Find;
 use File::Spec;
 
 sub usage {
-	print "RodoFS Tagger - A RodoFS metadata creator\nCopyright 2014 - Mirko Mariotti - http://www.mirkomariotti.it\n\n"; 
+	print "RodoFS Tagger - A RodoFS metadata creator\nCopyright 2014-2026 - Mirko Mariotti - https://www.mirkomariotti.it\n\n"; 
 	print "usage: rodo-tag [options] file_or_regex\n\n";
 	print "-s			- Recurse.\n";
 	print "-h			- Set hostname in url.\n";

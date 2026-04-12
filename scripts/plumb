@@ -68,7 +68,7 @@ $url_edit{'dummy'}='dummyvimprobable2 "<url>"';
 
 
 sub usage {
-	print "Plumber - A file viewer/edit wrapper eventually using RodoFS metadatas\nCopyright 2014 - Mirko Mariotti - http://www.mirkomariotti.it\n\n";
+	print "Plumber - A file viewer/edit wrapper eventually using RodoFS metadatas\nCopyright 2014-2026 - Mirko Mariotti - https://www.mirkomariotti.it\n\n";
 	print "Usage: plumb [options] file_or_regex\n\n";
 	print "mode:\n";
 	print "-p			- Probe for file(s) type.\n";

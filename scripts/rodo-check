@@ -7,7 +7,7 @@ use File::Spec;
 
 
 sub usage {
-	print "RodoFS Lister - A RodoFS metadata checker\nCopyright 2014 - Mirko Mariotti - http://www.mirkomariotti.it\n\n"; 
+	print "RodoFS Lister - A RodoFS metadata checker\nCopyright 2014-2026 - Mirko Mariotti - https://www.mirkomariotti.it\n\n"; 
 	print "usage: rodo-check [options] file_or_regex\n\n";
 	print "-s			- Recurse.\n";
 	print "-w <path>		- Location of the rodofs syntetic file system (defaults /rodofs).\n\n";

@@ -1,6 +1,4 @@
-# RodoFS
-
-**A Tag-Based Virtual Filesystem with Redis Backend**
+# RodoFS, A Tag-Based Virtual Filesystem with Redis Backend**
 
 RodoFS is a FUSE-based virtual filesystem that provides tag-based organization for your files using Redis as a persistent metadata store. Instead of traditional hierarchical directory structures, RodoFS allows you to organize and access files through taxonomies, tags, and flexible rule-based queries.
 
@@ -87,31 +85,33 @@ bundle install
 
 ### Prerequisites
 
-### Prerequisites
-
 **System Requirements:**
+
 - Ruby 2.6 or later
 - FUSE libraries (libfuse)
 - Redis server
 - Perl 5 (for utility scripts)
 
 **Install system dependencies:**
+
 ```bash
 sudo apt-get install ruby fuse libfuse-dev redis-server perl
 ```
 
-
 **On Debian/Ubuntu:**
+
 ```bash
 sudo apt-get install ruby fuse libfuse-dev redis-server perl
 ```
 
 **On Fedora/RHEL:**
+
 ```bash
 sudo dnf install ruby fuse fuse-devel redis perl
 ```
 
 **Start Redis server:**
+
 ```bash
 sudo systemctl start redis
 # or run manually:
@@ -169,11 +169,13 @@ mkdir -p tax/subject/mathematics
 #### 2. Tag Files
 
 **Manual tagging:**
+
 ```bash
 ./rodo-tag -T "subject=physics,type=paper" /path/to/document.pdf
 ```
 
 **Auto-tagging based on filename patterns:**
+
 ```bash
 ./rodo-autotag -s /path/to/directory
 ```
@@ -379,6 +381,7 @@ Licensed under the Apache License 2.0. See [LICENSE](LICENSE) file for details.
 ## Author
 
 Copyright 2014-2026 - Mirko Mariotti
+
 - Website: https://www.mirkomariotti.it
 - GitHub: https://github.com/mmirko/rodofs
 
