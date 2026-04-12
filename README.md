@@ -17,15 +17,28 @@ RodoFS is a FUSE-based virtual filesystem that provides tag-based organization f
 
 ## Architecture
 
-### Main Components
+### Project Structure
 
-- **rodofs.rb**: Core FUSE filesystem implementation in Ruby
-- **RodoObject.rb**: Object model for resources, taxonomies, tags, and rules with Redis synchronization
-- **rodo-tag**: Perl utility to manually tag files
-- **rodo-autotag**: Perl utility for automatic tagging based on filename patterns
-- **rodo-check**: Perl utility to check file metadata
-- **rodo-del**: Perl utility to delete file metadata
-- **plumb**: Generic file viewer/editor launcher with RodoFS integration
+```
+rodofs/
+├── lib/
+│   ├── rodofs.rb                # Main module entry point
+│   └── rodofs/
+│       ├── version.rb           # Version information
+│       ├── rodo_object.rb       # Object model for resources, taxonomies, tags, and rules
+│       └── fuse_dir.rb          # FUSE filesystem implementation
+├── bin/
+│   └── rodofs                   # Command-line executable
+├── scripts/
+│   ├── plumb                    # Generic file viewer/editor launcher
+│   ├── rodo-tag                 # Perl utility to manually tag files
+│   ├── rodo-autotag             # Perl utility for automatic tagging
+│   ├── rodo-check               # Perl utility to check file metadata
+│   └── rodo-del                 # Perl utility to delete file metadata
+└── test/
+    ├── rodofstest.rb            # Integration tests
+    └── RodoObjectTest.rb        # Unit tests
+```
 
 ### Directory Structure
 
@@ -46,29 +59,47 @@ When mounted, RodoFS exposes the following virtual directories:
 └── auto/            # Auto-tagging rule definitions
 ```
 
-## Requirements
-
-### Ruby Dependencies
-
-- Ruby 2.4 or later (tested with Ruby 3.x)
-- `rfusefs` gem (FUSE filesystem library)
-- `redis` gem (version 4.2+)
-
-### System Dependencies
-
-- FUSE libraries (libfuse)
-- Redis server (running on localhost:6379 by default)
-- Perl 5 (for utility scripts)
-
-### Perl Modules
-
-- `Getopt::Std`
-- `File::Find`
-- `File::Spec`
-
 ## Installation
 
-### 1. Install System Dependencies
+### Option 1: Install as a Gem (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/mmirko/rodofs.git
+cd rodofs
+
+# Build and install the gem
+gem build rodofs.gemspec
+gem install rodofs-0.1.0.gem
+
+# Or install dependencies for development
+bundle install
+```
+
+### Option 2: Run from Source
+
+```bash
+# Clone and setup
+git clone https://github.com/mmirko/rodofs.git
+cd rodofs
+bundle install
+```
+
+### Prerequisites
+
+### Prerequisites
+
+**System Requirements:**
+- Ruby 2.6 or later
+- FUSE libraries (libfuse)
+- Redis server
+- Perl 5 (for utility scripts)
+
+**Install system dependencies:**
+```bash
+sudo apt-get install ruby fuse libfuse-dev redis-server perl
+```
+
 
 **On Debian/Ubuntu:**
 ```bash
@@ -80,39 +111,52 @@ sudo apt-get install ruby fuse libfuse-dev redis-server perl
 sudo dnf install ruby fuse fuse-devel redis perl
 ```
 
-### 2. Install Ruby Gems
-
-```bash
-gem install rfusefs redis
-```
-
-### 3. Clone and Setup
-
-```bash
-git clone https://github.com/mmirko/rodofs.git
-cd rodofs
-chmod +x rodofs.rb rodo-* plumb
-```
-
-### 4. Start Redis
-
+**Start Redis server:**
 ```bash
 sudo systemctl start redis
-# or
+# or run manually:
 redis-server
 ```
 
 ## Usage
 
-### Mounting the Filesystem
+### Using the Installed Gem
 
 ```bash
-./rodofs.rb /path/to/mountpoint
+# Start Redis if not already running
+redis-server &
+
+# Create a mountpoint
+mkdir -p /tmp/rodofs
+
+# Mount RodoFS
+rodofs /tmp/rodofs
+
+# In another terminal, use the filesystem
+cd /tmp/rodofs
 ```
 
-The filesystem will run in the foreground by default. Use Ctrl+C to unmount.
+### Configuration
 
-### Basic Workflow
+Set environment variables to configure RodoFS:
+
+- `REDIS_HOST`: Redis server hostname (default: `127.0.0.1`)
+- `REDIS_PORT`: Redis server port (default: `6379`)
+- `RODOFS_LANG`: Language code (default: `it`)
+
+Example:
+```bash
+REDIS_HOST=myredis.local REDIS_PORT=6380 rodofs /tmp/rodofs
+```
+
+### Using from Source
+
+bundle exec scripts/rodo-tag -T "subject=physics,type=paper" /path/to/document.pdf
+```
+
+**Auto-tagging based on filename patterns:**
+```bash
+bundle exec scripts## Basic Workflow
 
 #### 1. Create a Taxonomy and Tags
 
@@ -285,13 +329,48 @@ All Perl scripts have been updated for modern Perl compatibility.
 
 ## Development
 
+### Building the Gem
+
+```bash
+# Build gem package
+gem build rodofs.gemspec
+
+# Install locally
+gem install rodofs-0.1.0.gem
+
+# Or use bundler for development
+bundle install
+```
+
 ### Running Tests
 
 ```bash
-cd tests
+cd test
 ruby RodoObjectTest.rb
 ruby rodofstest.rb
 ```
+
+### Code Structure
+
+The gem follows standard Ruby conventions:
+
+- `lib/rodofs.rb` - Main entry point and public API
+- `lib/rodofs/` - Internal modules and classes
+  - `version.rb` - Version constant
+  - `rodo_object.rb` - Data model for Redis-backed objects
+  - `fuse_dir.rb` - FUSE filesystem implementation
+- `bin/rodofs` - Command-line executable
+- `scripts/` - Perl utility scripts for file tagging and management
+
+### Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -am 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+Contributions are welcome! Please feel free to submit pull requests or open issues on GitHub.
 
 ## License
 
@@ -299,12 +378,9 @@ Licensed under the Apache License 2.0. See [LICENSE](LICENSE) file for details.
 
 ## Author
 
-Copyright 2014 - Mirko Mariotti
+Copyright 2014-2026 - Mirko Mariotti
 - Website: https://www.mirkomariotti.it
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit pull requests or open issues on GitHub.
+- GitHub: https://github.com/mmirko/rodofs
 
 ## See Also
 

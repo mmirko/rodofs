@@ -1,0 +1,39 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "rodofs"
+
+if ARGV.size != 1
+  puts "RodoFS daemon - A tagged filesystem with a REDIS key/value backend"
+  puts "Copyright 2014-2026 - Mirko Mariotti - https://www.mirkomariotti.it"
+  puts
+  puts "Usage: #{File.basename($PROGRAM_NAME)} <mountpoint>"
+  puts
+  puts "Examples:"
+  puts "  #{File.basename($PROGRAM_NAME)} /mnt/rodofs"
+  puts
+  puts "Options:"
+  puts "  Set REDIS_HOST and REDIS_PORT environment variables to configure Redis connection"
+  puts "  (defaults: localhost:6379)"
+  exit 1
+end
+
+mountpoint = ARGV[0]
+
+redis_host = ENV.fetch('REDIS_HOST', '127.0.0.1')
+redis_port = ENV.fetch('REDIS_PORT', '6379').to_i
+lang = ENV.fetch('RODOFS_LANG', 'it')
+
+begin
+  RodoFS.mount(
+    lang: lang,
+    redis_options: { host: redis_host, port: redis_port },
+    mountpoint: mountpoint
+  )
+rescue RodoFS::Error => e
+  warn "Error: #{e.message}"
+  exit 1
+rescue Interrupt
+  puts "\nShutting down RodoFS..."
+  exit 0
+end

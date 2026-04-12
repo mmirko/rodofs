@@ -1,12 +1,19 @@
-#!/usr/bin/env ruby
+# frozen_string_literal: true
 
 require 'rfusefs'
 require 'redis'
-#require './RodoObject.rb'
-require '/home/mirko/Projects/rodofs/RodoObject.rb'
+require_relative 'rodo_object'
 
+module RodoFS
+  # FuseDir implements the FUSE filesystem for RodoFS
+  class FuseDir < ::FuseFS::FuseDir
+    private
 
-class RodoFS < FuseFS::FuseDir
+    def scan_path(path)
+      path.split('/').reject(&:empty?)
+    end
+
+    public
 
         def initialize(lang=nil, server=nil)
 
@@ -23,7 +30,7 @@ class RodoFS < FuseFS::FuseDir
 		@errorlist=[]
 
 		# Loading the rules and computing the members
-		obj = RodoObject.new('Rrule',@lang,@r)
+		obj = RodoFS::RodoObject.new('Rrule',@lang,@r)
 		@r.smembers('rul:all').each do |ioid|
 			obj.oid=ioid.to_i()
 			obj.sync_all()
@@ -45,13 +52,13 @@ class RodoFS < FuseFS::FuseDir
 		when rule =~ /^([\w\s]+)=([\w\s]+)$/
 			taxname,tagname=rule.split('=')
 
-			obj = RodoObject.new('Rtax',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rtax',@lang,@r)
 			obj.search(:label,taxname)
 			if !obj.oid.nil?
 				obj.sync_key(:tags)
 				resoid2=obj.inner_search(:tags,:label,tagname)
 				if !resoid2.nil?
-					obj2 = RodoObject.new('Rtag',@lang,@r)
+					obj2 = RodoFS::RodoObject.new('Rtag',@lang,@r)
 					obj2.oid=resoid2
 					obj2.sync_key(:res)
 					rmembers=obj2.get(:res)
@@ -72,13 +79,13 @@ class RodoFS < FuseFS::FuseDir
 		when rule =~ /^([\w\s]+)=([\w\s]+)$/
 			taxname,tagname=rule.split('=')
 
-			obj = RodoObject.new('Rtax',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rtax',@lang,@r)
 			obj.search(:label,taxname)
 			if !obj.oid.nil?
 				obj.sync_key(:tags)
 				resoid2=obj.inner_search(:tags,:label,tagname)
 				if !resoid2.nil?
-					obj2 = RodoObject.new('Rtag',@lang,@r)
+					obj2 = RodoFS::RodoObject.new('Rtag',@lang,@r)
 					obj2.oid=resoid2
 					obj2.sync_key(:res)
 					rmembers=obj2.get(:res)
@@ -92,7 +99,7 @@ class RodoFS < FuseFS::FuseDir
 		when rule =~ /^([\w\s]+)!=([\w\s]+)$/
 			taxname,tagname=rule.split('!=')
 
-			obj = RodoObject.new('Rtax',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rtax',@lang,@r)
 			obj.search(:label,taxname)
 			if !obj.oid.nil?
 				obj.sync_key(:tags)
@@ -126,11 +133,11 @@ class RodoFS < FuseFS::FuseDir
 			return true
 		# Tax dir
 		when scanned[0]=='tax' && !scanned[1].nil? && scanned[2].nil?
-			obj = RodoObject.new('Rtax',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rtax',@lang,@r)
 			obj.search(:label,scanned[1])
 			return !obj.oid.nil? ? true : false
 		when scanned[0]=='tax' && !scanned[1].nil? && !scanned[2].nil? && scanned[3].nil?
-			obj = RodoObject.new('Rtax',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rtax',@lang,@r)
 			obj.search(:label,scanned[1])
 			if ! obj.oid.nil?
 				obj.sync_key(:tags)
@@ -157,12 +164,12 @@ class RodoFS < FuseFS::FuseDir
 			return true
 		# Auto
 		when scanned[0]=='auto' && !scanned[1].nil? && scanned[2].nil?
-			obj = RodoObject.new('Rauto',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rauto',@lang,@r)
 			resoid=obj.search(:label,scanned[1])
 			return !resoid.nil? ? true : false
 		# Res
 		when scanned[0]=='res' && !scanned[1].nil? && scanned[2].nil?
-			obj3 = RodoObject.new('Rresource',@lang,@r)
+			obj3 = RodoFS::RodoObject.new('Rresource',@lang,@r)
 
 			# Each current matched entries are searched for the file
 			@currmatch.each do |ioid|
@@ -176,14 +183,14 @@ class RodoFS < FuseFS::FuseDir
 		# Tax
 		when scanned[0]=='tax' && !scanned[1].nil? && !scanned[2].nil? && !scanned[3].nil? && scanned[4].nil?
 			# Search the taxonomy
-			obj = RodoObject.new('Rtax',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rtax',@lang,@r)
 			obj.search(:label,scanned[1])
 			if ! obj.oid.nil?
 				# Search within the tags the given one
 				obj.sync_key(:tags)
 				resoid=obj.inner_search(:tags,:label,scanned[2])
 				if ! resoid.nil?
-					obj2 = RodoObject.new('Rtag',@lang,@r)
+					obj2 = RodoFS::RodoObject.new('Rtag',@lang,@r)
 					obj2.oid=resoid
 					obj2.sync_key(:res)
 					resoid2=obj2.inner_search(:res,:label,scanned[3])
@@ -200,7 +207,7 @@ class RodoFS < FuseFS::FuseDir
 				if scanned[2]=='ctl'
 					return true
 				end
-				obj = RodoObject.new('Rresource',@lang,@r)
+				obj = RodoFS::RodoObject.new('Rresource',@lang,@r)
 				@rules[scanned[1]][1].each do |ioid|
 					obj.oid=ioid.to_i()
 					obj.sync_key(:label)
@@ -223,14 +230,14 @@ class RodoFS < FuseFS::FuseDir
 		case
 		# Taxonomies
 		when scanned[0]=='tax' && !scanned[1].nil? && scanned[2].nil?
-			obj = RodoObject.new('Rtax',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rtax',@lang,@r)
 			obj.oid=0
 			obj.set(:label,scanned[1])
 			obj.sync_key(:label)
 		when scanned[0]=='tax' && !scanned[1].nil? && !scanned[2].nil?
-			obj = RodoObject.new('Rtax',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rtax',@lang,@r)
 			obj.search(:label,scanned[1])
-			obj2 = RodoObject.new('Rtag',@lang,@r)
+			obj2 = RodoFS::RodoObject.new('Rtag',@lang,@r)
 			obj2.oid=0
 			obj2.set(:label,scanned[2])
 			obj2.add(:tax,obj.oid.to_s())
@@ -239,7 +246,7 @@ class RodoFS < FuseFS::FuseDir
 			obj.sync_all()
 		# Rules
 		when scanned[0]=='rules' && !scanned[1].nil? && scanned[2].nil?
-			obj = RodoObject.new('Rrule',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rrule',@lang,@r)
 			obj.oid=0
 			obj.set(:label,scanned[1])
 			obj.set(:rule,'none')
@@ -260,11 +267,11 @@ class RodoFS < FuseFS::FuseDir
 		case
 		# Taxonomies
 		when scanned[0]=='tax' && !scanned[1].nil? && scanned[2].nil?
-			obj = RodoObject.new('Rtax',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rtax',@lang,@r)
 			obj.search(:label,scanned[1])
 			return obj.oid.nil? ? true : false
 		when scanned[0]=='tax' && !scanned[1].nil? && !scanned[2].nil?
-			obj = RodoObject.new('Rtax',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rtax',@lang,@r)
 			obj.search(:label,scanned[1])
 			if !obj.oid.nil?
 				obj.sync_key(:tags)
@@ -275,7 +282,7 @@ class RodoFS < FuseFS::FuseDir
 			end
 		# Rules
 		when scanned[0]=='rules' && !scanned[1].nil? && scanned[2].nil?
-			obj = RodoObject.new('Rrule',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rrule',@lang,@r)
 			obj.search(:label,scanned[1])
 			return obj.oid.nil? ? true : false
 		# Every other thing is crap
@@ -292,22 +299,22 @@ class RodoFS < FuseFS::FuseDir
 		case
 		# Taxonomies
 		when scanned[0]=='tax' && !scanned[1].nil? && scanned[2].nil?
-			obj = RodoObject.new('Rtax',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rtax',@lang,@r)
 			obj.search(:label,scanned[1])
 			obj.deloid()
 		when scanned[0]=='tax' && !scanned[1].nil? && !scanned[2].nil?
-			obj = RodoObject.new('Rtax',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rtax',@lang,@r)
 			obj.search(:label,scanned[1])
 			obj.sync_all()
 			resoid=obj.inner_search(:tags,:label,scanned[2])
 			obj.del(:tags,resoid.to_s())
 			obj.sync_all()
-			obj2 = RodoObject.new('Rtag',@lang,@r)
+			obj2 = RodoFS::RodoObject.new('Rtag',@lang,@r)
 			obj2.oid=resoid
 			obj2.deloid()
 		# Rules
 		when scanned[0]=='rules' && !scanned[1].nil? && scanned[2].nil?
-			obj = RodoObject.new('Rrule',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rrule',@lang,@r)
 			obj.search(:label,scanned[1])
 			obj.deloid()
 			@rules.delete(scanned[1])
@@ -321,7 +328,7 @@ class RodoFS < FuseFS::FuseDir
 		case
 		# Taxonomies
 		when scanned[0]=='tax' && !scanned[1].nil? && scanned[2].nil?
-			obj = RodoObject.new('Rtax',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rtax',@lang,@r)
 			obj.search(:label,scanned[1])
 			if !obj.oid.nil?
 				obj.sync_key(:tags)
@@ -330,13 +337,13 @@ class RodoFS < FuseFS::FuseDir
 				
 			end
 		when scanned[0]=='tax' && !scanned[1].nil? && !scanned[2].nil? && scanned[3].nil?
-			obj1 = RodoObject.new('Rtax',@lang,@r)
+			obj1 = RodoFS::RodoObject.new('Rtax',@lang,@r)
 			obj1.search(:label,scanned[1])
 			if !obj1.oid.nil?
 				obj1.sync_key(:tags)
 				resoid2=obj1.inner_search(:tags,:label,scanned[2])
 				if !resoid2.nil?
-					obj2 = RodoObject.new('Rtag',@lang,@r)
+					obj2 = RodoFS::RodoObject.new('Rtag',@lang,@r)
 					obj2.oid=resoid2.to_i()
 					obj2.sync_key(:res)
 					ressub=obj2.get(:res)
@@ -349,7 +356,7 @@ class RodoFS < FuseFS::FuseDir
 			end
 		# Rules
 		when scanned[0]=='rules' && !scanned[1].nil? && scanned[2].nil?
-			obj = RodoObject.new('Rrule',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rrule',@lang,@r)
 			obj.search(:label,scanned[1])
 			return !obj.oid.nil? ? true : false
 		# Every other thing is crap
@@ -373,7 +380,7 @@ class RodoFS < FuseFS::FuseDir
 		when scanned_from[0]=='tax' && !scanned_from[1].nil? && scanned_from[2].nil? && scanned_to[0]=='tax' && !scanned_to[1].nil? && scanned_to[2].nil?
 			# Renaming a taxonomy
 			if !directory?(to_path)
-				obj = RodoObject.new('Rtax',@lang,@r)
+				obj = RodoFS::RodoObject.new('Rtax',@lang,@r)
 				obj.search(:label,scanned_from[1])
 				if !obj.oid.nil?
 					obj.sync_key(:label)
@@ -386,14 +393,14 @@ class RodoFS < FuseFS::FuseDir
 			# Renaming a tag
 			if scanned_from[1] == scanned_to[1]
 				if !directory?(to_path)
-					obj = RodoObject.new('Rtax',@lang,@r)
+					obj = RodoFS::RodoObject.new('Rtax',@lang,@r)
 					obj.search(:label,scanned_from[1])
 					if !obj.oid.nil?
 						obj.sync_key(:tags)
 						resoid2=obj.inner_search(:tags,:label,scanned_from[2])
 
 						if !resoid2.nil?
-							obj2 = RodoObject.new('Rtag',@lang,@r)
+							obj2 = RodoFS::RodoObject.new('Rtag',@lang,@r)
 							obj2.oid=resoid2
 							obj2.sync_key(:label)
 							obj2.set(:label,scanned_to[2])
@@ -412,16 +419,16 @@ class RodoFS < FuseFS::FuseDir
 		puts "delete("+path+")" unless !@debug
 		case
 		when scanned[0]=='auto' && !scanned[1].nil? && scanned[2].nil?
-			obj = RodoObject.new('Rauto',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rauto',@lang,@r)
 			obj.search(:label,scanned[1])
 			if !obj.oid.nil?
 				obj.deloid()
 			end
 
 		when scanned[0]=='tax' && !scanned[1].nil? && !scanned[2].nil? && !scanned[3].nil? && scanned[4].nil?
-			obj1 = RodoObject.new('Rtax',@lang,@r)
-			obj2 = RodoObject.new('Rtag',@lang,@r)
-			obj3 = RodoObject.new('Rresource',@lang,@r)
+			obj1 = RodoFS::RodoObject.new('Rtax',@lang,@r)
+			obj2 = RodoFS::RodoObject.new('Rtag',@lang,@r)
+			obj3 = RodoFS::RodoObject.new('Rresource',@lang,@r)
 
 			obj1.search(:label,scanned[1])
 			if !obj1.oid.nil?
@@ -542,7 +549,7 @@ class RodoFS < FuseFS::FuseDir
 				end
 			end
 		when scanned[0]=='auto'  && !scanned[1].nil? && scanned[2].nil?
-			obj = RodoObject.new('Rauto',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rauto',@lang,@r)
 			woid=obj.search(:label,scanned[1])
 
 			if woid.nil?
@@ -572,7 +579,7 @@ class RodoFS < FuseFS::FuseDir
 
 
 		when scanned[0]=='res'  && !scanned[1].nil? && scanned[2].nil?
-			obj3 = RodoObject.new('Rresource',@lang,@r)
+			obj3 = RodoFS::RodoObject.new('Rresource',@lang,@r)
 
 			# Each current matched entries are searched for the file to write to (It has to exist, eventually more than one)
 			@currmatch.each do |ioid|
@@ -585,7 +592,7 @@ class RodoFS < FuseFS::FuseDir
 			end
 
 			if body=='kill' || body=="kill\n"
-				obj2 = RodoObject.new('Rtag',@lang,@r)
+				obj2 = RodoFS::RodoObject.new('Rtag',@lang,@r)
 				lmembers=obj3.get(:tags)
 				lmembers.each do |ioid|
 					obj2.oid=ioid.to_i
@@ -629,9 +636,9 @@ class RodoFS < FuseFS::FuseDir
 			end
 
 		when scanned[0]=='tax' && !scanned[1].nil? && !scanned[2].nil? && !scanned[3].nil? && scanned[4].nil?
-			obj1 = RodoObject.new('Rtax',@lang,@r)
-			obj2 = RodoObject.new('Rtag',@lang,@r)
-			obj3 = RodoObject.new('Rresource',@lang,@r)
+			obj1 = RodoFS::RodoObject.new('Rtax',@lang,@r)
+			obj2 = RodoFS::RodoObject.new('Rtag',@lang,@r)
+			obj3 = RodoFS::RodoObject.new('Rresource',@lang,@r)
 
 			obj1.search(:label,scanned[1])
 			obj1.sync_key(:tags)
@@ -702,7 +709,7 @@ class RodoFS < FuseFS::FuseDir
 				body.split(/\n/).each do |line|
 					case
 					when line =~ /^rule: (.*)$/
-						obj = RodoObject.new('Rrule',@lang,@r)
+						obj = RodoFS::RodoObject.new('Rrule',@lang,@r)
 						obj.search(:label,scanned[1])
 						obj.sync_all()
 						proctext=line
@@ -747,7 +754,7 @@ class RodoFS < FuseFS::FuseDir
 				end
 			end
 		when scanned[0]=='auto'  && !scanned[1].nil? && scanned[2].nil?
-			obj = RodoObject.new('Rauto',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rauto',@lang,@r)
 			obj.search(:label,scanned[1])
 			if !obj.oid.nil?
 				obj.sync_all()
@@ -760,9 +767,9 @@ class RodoFS < FuseFS::FuseDir
 			end
 
 		when scanned[0]=='res'  && !scanned[1].nil? && scanned[2].nil?
-			obj1 = RodoObject.new('Rtax',@lang,@r)
-			obj2 = RodoObject.new('Rtag',@lang,@r)
-			obj3 = RodoObject.new('Rresource',@lang,@r)
+			obj1 = RodoFS::RodoObject.new('Rtax',@lang,@r)
+			obj2 = RodoFS::RodoObject.new('Rtag',@lang,@r)
+			obj3 = RodoFS::RodoObject.new('Rresource',@lang,@r)
 			obj3.search(:label,scanned[1])
 			if !obj3.nil?
 				obj3.sync_all()
@@ -793,9 +800,9 @@ class RodoFS < FuseFS::FuseDir
 				end
 			end
 		when scanned[0]=='tax' && !scanned[1].nil? && !scanned[2].nil? && !scanned[3].nil? && scanned[4].nil?
-			obj1 = RodoObject.new('Rtax',@lang,@r)
-			obj2 = RodoObject.new('Rtag',@lang,@r)
-			obj3 = RodoObject.new('Rresource',@lang,@r)
+			obj1 = RodoFS::RodoObject.new('Rtax',@lang,@r)
+			obj2 = RodoFS::RodoObject.new('Rtag',@lang,@r)
+			obj3 = RodoFS::RodoObject.new('Rresource',@lang,@r)
 			obj1.search(:label,scanned[1])
 			puts obj1.inspect unless !@debug
 			obj1.sync_key(:tags)
@@ -855,7 +862,7 @@ class RodoFS < FuseFS::FuseDir
 			ret=['ctl','tax','res','rules','auto']
 		# auto dir
 		when scanned[0]=='auto' && scanned[1].nil?
-			obj = RodoObject.new('Rauto',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rauto',@lang,@r)
 			lmembers=@r.smembers('aut:all')
 			ret=[]
 			lmembers.each do |ioid|
@@ -867,7 +874,7 @@ class RodoFS < FuseFS::FuseDir
 			ret
 		# res dir
 		when scanned[0]=='res' && scanned[1].nil?
-			obj = RodoObject.new('Rresource',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rresource',@lang,@r)
 			ret=[]
 			@currmatch.each do |ioid|
 				obj.oid=ioid.to_i()
@@ -878,7 +885,7 @@ class RodoFS < FuseFS::FuseDir
 			ret
 		# Tax dir
 		when scanned[0]=='tax' && scanned[1].nil?
-			obj = RodoObject.new('Rtax',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rtax',@lang,@r)
 			ret=[]
 			@r.smembers('tax:all').each do |ioid|
 				obj.oid=ioid.to_i()
@@ -888,11 +895,11 @@ class RodoFS < FuseFS::FuseDir
 			end 
 			ret
 		when scanned[0]=='tax' && !scanned[1].nil? && scanned[2].nil?
-			obj = RodoObject.new('Rtax',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rtax',@lang,@r)
 			ret=[]
 			obj.search(:label,scanned[1])
 			if ! obj.oid.nil?
-				obj2 = RodoObject.new('Rtag',@lang,@r)
+				obj2 = RodoFS::RodoObject.new('Rtag',@lang,@r)
 				obj.sync_key(:tags)
 				lmembers=obj.get(:tags)
 				lmembers.each do |ioid|
@@ -904,9 +911,9 @@ class RodoFS < FuseFS::FuseDir
 			end
 			ret
 		when scanned[0]=='tax' && !scanned[1].nil? && !scanned[2].nil? && scanned[3].nil?
-			obj1 = RodoObject.new('Rtax',@lang,@r)
-			obj2 = RodoObject.new('Rtag',@lang,@r)
-			obj3 = RodoObject.new('Rresource',@lang,@r)
+			obj1 = RodoFS::RodoObject.new('Rtax',@lang,@r)
+			obj2 = RodoFS::RodoObject.new('Rtag',@lang,@r)
+			obj3 = RodoFS::RodoObject.new('Rresource',@lang,@r)
 			ret=[]
 			obj1.search(:label,scanned[1])
 			obj1.sync_key(:tags)
@@ -929,7 +936,7 @@ class RodoFS < FuseFS::FuseDir
 			end 
 			ret
 		when scanned[0]=='rules' && !scanned[1].nil? && scanned[2].nil?
-			obj = RodoObject.new('Rresource',@lang,@r)
+			obj = RodoFS::RodoObject.new('Rresource',@lang,@r)
 			ret=['ctl']
 			@rules[scanned[1]][1].each do |ioid|
 				obj.oid=ioid.to_i()
@@ -940,32 +947,5 @@ class RodoFS < FuseFS::FuseDir
 			ret
 		end
 	end
-end
-
-#####
-
-if (File.basename($0) == File.basename(__FILE__))
-	if ARGV.size != 1
-		puts "RodoFS deamon - A tagged filesystem with a REDIS key/value backend\nCopyright 2014 - Mirko Mariotti - http://www.mirkomariotti.it\n\n";
-		puts "Usage: #{$0} <directory>"
-		exit
-	end
-
-	dirname=nil
-	ARGV.each do|a|
-		dirname=a
-	end
-
-	if (! File.directory?(dirname))
-		puts "#{dirname} is not a directory"
-	end
-
-       	r = Redis.new(:host => "127.0.0.1", :port => 6379)
-
-	root = RodoFS.new('it',r)
-
-	FuseFS.set_root(root)
-
-	FuseFS.mount_under(dirname)
-	FuseFS.run
+  end
 end
