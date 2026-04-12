@@ -133,7 +133,7 @@ foreach $fn (@selected) {
 						print NF 'url: '.$url."\n";
 						close (NF);
 					}
-					break;
+					last;
 				}
 			}
 			closedir(DIR);

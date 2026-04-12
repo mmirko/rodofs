@@ -184,7 +184,7 @@ foreach $fn (@selected) {
 									foreach $i(@currenturls) {
 										if ($i eq $url) {
 											$urlchk=1; 
-											break;
+										last;
 										}
 									}
 									if ($urlchk eq 0) {
@@ -198,7 +198,7 @@ foreach $fn (@selected) {
 								print NF 'url: '.$url."\n";
 								close (NF);
 							}
-							break;
+							last;
 						}
 					}
 					closedir(DIR);

@@ -78,7 +78,7 @@ foreach $fn (@selected) {
 			$tags=`cat "$firstn" | egrep "^tags: "`;
 			$tags=~s/\n//g;
 			print ' - '.$tags;
-			break;
+			last;
 		}
 	}
 	closedir(DIR);

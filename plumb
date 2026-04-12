@@ -239,7 +239,7 @@ if ((defined $options{r})||(defined $options{R})) {
 		push(@filtered,$selected[$place]);
 
 		if (defined $options{R}) {
-			delete $selected[$place];
+			splice(@selected, $place, 1);
 		}
 
 		if ($#selected+1 == 0) {

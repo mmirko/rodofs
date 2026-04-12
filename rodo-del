@@ -76,7 +76,7 @@ foreach $fn (@selected) {
 			system('echo "kill" > "'.$rododict.'res/'.$stfn.'"');
 			print " - Metadata erased.";
 			$chk=1;
-			break;
+			last;
 		}
 	}
 	closedir(DIR);
