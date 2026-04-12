@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-require 'fusefs'
+require 'rfusefs'
 require 'redis'
 #require './RodoObject.rb'
 require '/home/mirko/Projects/rodofs/RodoObject.rb'
