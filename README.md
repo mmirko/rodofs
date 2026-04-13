@@ -1,4 +1,4 @@
-# RodoFS, A Tag-Based Virtual Filesystem with Redis Backend**
+# RodoFS, A Tag-Based Virtual Filesystem with Redis Backend
 
 RodoFS is a FUSE-based virtual filesystem that provides tag-based organization for your files using Redis as a persistent metadata store. Instead of traditional hierarchical directory structures, RodoFS allows you to organize and access files through taxonomies, tags, and flexible rule-based queries.
 
